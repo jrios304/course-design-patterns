@@ -247,8 +247,8 @@ classDiagram
     BaseRepository <|-- CategoryRepository
     BaseRepository <|-- FavoriteRepository
     
-    note for BaseRepository "Clase base abstracta\nManeja conexión y persistencia JSON"
-    note for ProductRepository "Operaciones CRUD\nespecíficas para productos"
+    note for BaseRepository "Clase base abstracta maneja conexión y persistencia JSON"
+    note for ProductRepository "Operaciones CRUD específicas para productos"
 ```
 
 #### 5.3.1 Implementación del Patrón Factory para Repositorios
