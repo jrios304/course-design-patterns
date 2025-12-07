@@ -8,11 +8,7 @@ from endpoints.favorites import FavoritesResource
 app = Flask(__name__)
 api = Api(app)
 
-import json
-with open('db.json', 'r') as file:
-    products = json.load(file)
-
-api.add_resource( AuthenticationResource,'/auth')
+api.add_resource(AuthenticationResource, '/auth')
 
 api.add_resource(ProductsResource, '/products', '/products/<int:product_id>') 
 

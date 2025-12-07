@@ -1,61 +1,58 @@
 from flask_restful import Resource, reqparse
-import json
 from flask import request
-from utils.database_connection import DatabaseConnection
+from utils.auth_decorator import require_auth
+from services.product_service import ProductService
 
-def is_valid_token(token):
-    return token == 'abcd1234'
 
 class ProductsResource(Resource):
+    """Recurso REST para operaciones con productos."""
+    
     def __init__(self):
-       
-        self.db = DatabaseConnection('db.json')
-        self.db.connect()
-
-        self.products = self.db.get_products()
+        self.service = ProductService()
         self.parser = reqparse.RequestParser()
-        
+        self.parser.add_argument('name', type=str, required=False)
+        self.parser.add_argument('category', type=str, required=False)
+        self.parser.add_argument('price', type=float, required=False)
+    
+    @require_auth
     def get(self, product_id=None):
-        args = self.parser.parse_args()
-        token = request.headers.get('Authorization')
+        """Obtiene productos. Soporta filtrado por categoría y búsqueda por ID."""
         category_filter = request.args.get('category')
-      
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
-
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
-
+        
         if category_filter:
-            filtered_products = [p for p in self.products if p['category'].lower() == category_filter.lower()]
-            return filtered_products 
+            products = self.service.get_products_by_category(category_filter)
+            return products, 200
         
         if product_id is not None:
-            product = next((p for p in self.products if p['id'] == product_id), None)
-            if product is not None:
-                return product
+            product = self.service.get_product_by_id(product_id)
+            if product:
+                return product, 200
             else:
                 return {'message': 'Product not found'}, 404
-              
-        return self.products
+        
+        products = self.service.get_all_products()
+        return products, 200
 
+    @require_auth
     def post(self):
-        token = request.headers.get('Authorization')
+        """Crea un nuevo producto."""
         parser = reqparse.RequestParser()
         parser.add_argument('name', type=str, required=True, help='Name of the product')
         parser.add_argument('category', type=str, required=True, help='Category of the product')
         parser.add_argument('price', type=float, required=True, help='Price of the product')
 
         args = parser.parse_args()
-        new_product = {
-            'id': len(self.products) + 1,
-            'name': args['name'],
-            'category': args['category'],
-            'price': args['price']
-        }
-
-        self.products.append(new_product)
-        self.db.add_product(new_product)
-        return {'mensaje': 'Product added', 'product': new_product}, 201
+        
+        try:
+            new_product = self.service.create_product({
+                'name': args['name'],
+                'category': args['category'],
+                'price': args['price']
+            })
+            return {'message': 'Product added', 'product': new_product}, 201
+        except ValueError as e:
+            return {'message': str(e)}, 400
+        except Exception as e:
+            return {'message': f'Error creating product: {str(e)}'}, 500
 
 
