@@ -1,21 +1,27 @@
 from flask import Flask
 from flask_restful import Api
-from endpoints.products import ProductsResource
-from endpoints.auth import AuthenticationResource
-from endpoints.categories import CategoriesResource
-from endpoints.favorites import FavoritesResource
+from app.controllers.notification_controller import NotificationController, NotificationPendingController
 
 app = Flask(__name__)
 api = Api(app)
 
-api.add_resource(AuthenticationResource, '/auth')
+# Endpoints de notificaciones (nueva arquitectura)
+api.add_resource(NotificationController, '/notifications')
+api.add_resource(NotificationPendingController, '/notifications/pending')
 
-api.add_resource(ProductsResource, '/products', '/products/<int:product_id>') 
-
-api.add_resource(CategoriesResource, '/categories', '/categories/<int:category_id>')
-
-api.add_resource(FavoritesResource, '/favorites')
+# TODO: Migrar endpoints legacy a nueva arquitectura:
+# - /auth
+# - /products
+# - /categories
+# - /favorites
 
 if __name__ == '__main__':
+    print("🚀 API REST con Sistema de Notificaciones")
+    print("📡 Endpoints disponibles:")
+    print("   GET  /notifications?user_id=<id>")
+    print("   POST /notifications")
+    print("   GET  /notifications/pending")
+    print("   POST /notifications/retry")
+    print("\n⚠️  Nota: Los endpoints legacy (/auth, /products, etc.) están pendientes de migración")
+    print("💡 Para ver el sistema en acción, ejecuta: python demo_notifications.py\n")
     app.run(debug=True)
-

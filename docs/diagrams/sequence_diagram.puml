@@ -1,0 +1,120 @@
+@startuml Sistema de Notificaciones - Diagrama de Secuencia
+
+' Configuración
+skinparam sequenceMessageAlign center
+autonumber
+
+' Actores y Participantes
+actor Usuario as user
+participant "FavoriteController" as controller
+participant "FavoriteService\n(Subject)" as favorite_service
+participant "NotificationService\n(Observer)" as notif_service
+participant "NotificationFactory\n(Factory)" as factory
+participant "EmailStrategy\n(Strategy)" as email_strategy
+participant "SMSStrategy\n(Strategy)" as sms_strategy
+participant "NotificationRepository" as repository
+participant "DatabaseConnection\n(Singleton)" as db
+
+' Flujo
+title Flujo Completo: Agregar Favorito y Enviar Notificaciones
+
+== Agregar Favorito ==
+user -> controller: POST /favorites\n{user_id: 1, product_id: 100}
+activate controller
+
+controller -> controller: Validar token
+controller -> favorite_service: add_favorite(1, 100, "Laptop")
+activate favorite_service
+
+favorite_service -> db: add_item('favorites', data)
+activate db
+db -> db: Guardar en JSON
+db --> favorite_service: success
+deactivate db
+
+== Patrón Observer: Notificar ==
+favorite_service -> favorite_service: notify('favorite_added', data)
+favorite_service -> notif_service: update(subject, 'favorite_added', data)
+activate notif_service
+
+note right of notif_service
+  Observer recibe evento
+  y reacciona automáticamente
+end note
+
+== Crear Notificación ==
+notif_service -> notif_service: _handle_favorite_added(data)
+notif_service -> notif_service: create Notification object
+
+== Guardar en Repository ==
+notif_service -> repository: save(notification)
+activate repository
+repository -> db: add_item('notifications', data)
+activate db
+db --> repository: saved notification (id: 1)
+deactivate db
+repository --> notif_service: notification with id
+deactivate repository
+
+== Patrón Factory: Crear Estrategias ==
+notif_service -> factory: create_strategy(EMAIL, config)
+activate factory
+factory -> factory: Seleccionar EmailStrategy
+factory --> notif_service: email_strategy
+deactivate factory
+
+notif_service -> factory: create_strategy(SMS, config)
+activate factory
+factory -> factory: Seleccionar SMSStrategy
+factory --> notif_service: sms_strategy
+deactivate factory
+
+== Patrón Strategy: Enviar Notificaciones ==
+notif_service -> email_strategy: send(notification)
+activate email_strategy
+email_strategy -> email_strategy: Conectar a SMTP
+email_strategy -> email_strategy: Enviar email
+email_strategy --> notif_service: true
+deactivate email_strategy
+
+note right of email_strategy
+  Cada estrategia implementa
+  su propio método de envío
+end note
+
+notif_service -> sms_strategy: send(notification)
+activate sms_strategy
+sms_strategy -> sms_strategy: Conectar a Twilio
+sms_strategy -> sms_strategy: Enviar SMS
+sms_strategy --> notif_service: true
+deactivate sms_strategy
+
+== Actualizar Estado ==
+notif_service -> repository: mark_as_sent(1)
+activate repository
+repository -> db: update_item('notifications', 1, {status: 'sent'})
+activate db
+db --> repository: success
+deactivate db
+repository --> notif_service: success
+deactivate repository
+
+notif_service --> favorite_service: (evento procesado)
+deactivate notif_service
+
+favorite_service --> controller: favorite added
+deactivate favorite_service
+
+controller --> user: 201 Created\n{message: "Favorite added"}
+deactivate controller
+
+== Resultado ==
+note over user, db
+  ✅ Favorito agregado
+  ✅ Notificación guardada
+  ✅ Email enviado
+  ✅ SMS enviado
+  ✅ Estado actualizado
+end note
+
+@enduml

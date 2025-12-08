@@ -1,0 +1,195 @@
+@startuml Sistema de Notificaciones - Diagrama de Clases
+
+' Configuración
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+' ===== PATRÓN OBSERVER =====
+package "Observer Pattern" {
+    abstract class Observer {
+        {abstract} +update(subject, event, data)
+    }
+
+    class Subject {
+        -observers: List<Observer>
+        +attach(observer: Observer)
+        +detach(observer: Observer)
+        +notify(event: str, data: Any)
+    }
+
+    Subject "1" --> "*" Observer : notifica >
+}
+
+' ===== PATRÓN STRATEGY =====
+package "Strategy Pattern" {
+    interface NotificationStrategy {
+        {abstract} +send(notification: Notification): bool
+        {abstract} +get_strategy_name(): str
+    }
+
+    class EmailNotificationStrategy {
+        -smtp_config: dict
+        +send(notification): bool
+        +get_strategy_name(): str
+    }
+
+    class SMSNotificationStrategy {
+        -sms_provider: str
+        +send(notification): bool
+        +get_strategy_name(): str
+    }
+
+    class PushNotificationStrategy {
+        -push_service: str
+        +send(notification): bool
+        +get_strategy_name(): str
+    }
+
+    NotificationStrategy <|.. EmailNotificationStrategy
+    NotificationStrategy <|.. SMSNotificationStrategy
+    NotificationStrategy <|.. PushNotificationStrategy
+}
+
+' ===== PATRÓN FACTORY =====
+package "Factory Pattern" {
+    class NotificationFactory <<Factory>> {
+        {static} -strategies: Dict
+        {static} +create_strategy(type, config): NotificationStrategy
+        {static} +register_strategy(type, class)
+        {static} +get_supported_types(): List
+    }
+
+    NotificationFactory ..> NotificationStrategy : crea >
+}
+
+' ===== PATRÓN REPOSITORY =====
+package "Repository Pattern" {
+    abstract class BaseRepository<T> {
+        #db: DatabaseConnection
+        #collection_name: str
+        {abstract} +to_entity(data: dict): T
+        {abstract} +to_dict(entity: T): dict
+        +find_all(): List<T>
+        +find_by_id(id): T
+        +save(entity): T
+        +update(id, entity): T
+        +delete(id): bool
+    }
+
+    class NotificationRepository {
+        +to_entity(data): Notification
+        +to_dict(entity): dict
+        +find_by_user(user_id): List<Notification>
+        +find_pending(): List<Notification>
+        +mark_as_sent(id): bool
+        +mark_as_failed(id): bool
+    }
+
+    BaseRepository <|-- NotificationRepository
+}
+
+' ===== PATRÓN SINGLETON =====
+package "Singleton Pattern" {
+    class DatabaseConnection <<Singleton>> {
+        {static} -instance: DatabaseConnection
+        {static} -lock: Lock
+        -json_file_path: str
+        -data: dict
+        +get_data(key): list
+        +add_item(key, item): bool
+        +update_item(key, id, data): bool
+        +remove_item(key, id): bool
+    }
+}
+
+' ===== MODELOS =====
+package "Domain Models" {
+    class Notification {
+        +id: int
+        +user_id: int
+        +notification_type: NotificationType
+        +title: str
+        +message: str
+        +status: NotificationStatus
+        +created_at: datetime
+        +sent_at: datetime
+        +to_dict(): dict
+        +mark_as_sent()
+        +mark_as_failed()
+    }
+
+    enum NotificationType {
+        EMAIL
+        SMS
+        PUSH
+    }
+
+    enum NotificationStatus {
+        PENDING
+        SENT
+        FAILED
+    }
+
+    Notification --> NotificationType
+    Notification --> NotificationStatus
+}
+
+' ===== SERVICIOS =====
+package "Services (Business Logic)" {
+    class NotificationService {
+        -repository: NotificationRepository
+        -factory: NotificationFactory
+        -config: dict
+        +update(subject, event, data)
+        +send_notification(notification): bool
+        +get_user_notifications(user_id): List
+        +get_pending_notifications(): List
+    }
+
+    class FavoriteService {
+        -db: DatabaseConnection
+        +add_favorite(user_id, product_id)
+        +remove_favorite(user_id, product_id)
+        +get_user_favorites(user_id): List
+    }
+
+    Observer <|.. NotificationService
+    Subject <|-- FavoriteService
+}
+
+' ===== CONTROLLERS =====
+package "Controllers (Presentation)" {
+    class NotificationController {
+        -notification_service: NotificationService
+        +get(): Response
+        +post(): Response
+    }
+
+    NotificationController --> NotificationService
+}
+
+' ===== RELACIONES =====
+NotificationService --> NotificationRepository : usa >
+NotificationService --> NotificationFactory : usa >
+NotificationService --> NotificationStrategy : usa >
+NotificationRepository --> DatabaseConnection : usa >
+NotificationRepository --> Notification : gestiona >
+FavoriteService --> DatabaseConnection : usa >
+
+' Notas
+note right of Subject
+  Cuando se agrega un favorito,
+  notifica a todos los observers
+end note
+
+note right of NotificationFactory
+  Crea la estrategia apropiada
+  según el tipo de notificación
+end note
+
+note right of DatabaseConnection
+  Única instancia compartida
+  Thread-safe
+end note
+
+@enduml

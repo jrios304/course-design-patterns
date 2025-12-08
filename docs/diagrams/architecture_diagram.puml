@@ -1,0 +1,106 @@
+@startuml Arquitectura del Sistema
+
+' Configuración
+!define RECTANGLE class
+
+' Capas
+package "Presentation Layer (Controllers)" {
+    [NotificationController] as nc
+    [ProductController] as pc
+    [CategoryController] as cc
+    [FavoriteController] as fc
+}
+
+package "Business Logic Layer (Services)" {
+    [NotificationService] as ns
+    [FavoriteService] as fs
+    [ProductService] as ps
+    [CategoryService] as cs
+}
+
+package "Data Access Layer (Repositories)" {
+    [NotificationRepository] as nr
+    [ProductRepository] as pr
+    [CategoryRepository] as cr
+    [FavoriteRepository] as fr
+}
+
+package "Infrastructure Layer" {
+    database "JSON Files" {
+        [db.json] as db
+        [favorites.json] as fav_db
+    }
+
+    [DatabaseConnection\n<<Singleton>>] as dbconn
+}
+
+package "Design Patterns" {
+    [Observer Pattern] as observer
+    [Strategy Pattern] as strategy
+    [Factory Pattern] as factory
+    [Repository Pattern] as repo
+    [Singleton Pattern] as singleton
+}
+
+' Relaciones entre capas
+nc --> ns : usa
+fc --> fs : usa
+pc --> ps : usa
+cc --> cs : usa
+
+ns --> nr : usa
+fs --> nr : usa
+ps --> pr : usa
+cs --> cr : usa
+
+nr --> dbconn : usa
+pr --> dbconn : usa
+cr --> dbconn : usa
+fr --> dbconn : usa
+
+dbconn --> db : persiste
+dbconn --> fav_db : persiste
+
+' Patrones
+fs .up.> observer : implementa
+ns .up.> observer : implementa
+ns .up.> strategy : usa
+ns .up.> factory : usa
+nr .up.> repo : implementa
+dbconn .up.> singleton : implementa
+
+' Notas
+note right of observer
+  FavoriteService notifica
+  a NotificationService
+end note
+
+note right of strategy
+  Diferentes formas de
+  enviar notificaciones
+end note
+
+note right of singleton
+  Una única instancia
+  de conexión a BD
+end note
+
+note bottom of "Presentation Layer (Controllers)"
+  Maneja HTTP requests/responses
+  Validación de tokens
+  Parsing de parámetros
+end note
+
+note bottom of "Business Logic Layer (Services)"
+  Lógica de negocio
+  Orquestación de operaciones
+  Aplicación de reglas
+end note
+
+note bottom of "Data Access Layer (Repositories)"
+  Abstracción de persistencia
+  Queries y operaciones CRUD
+  Conversión de modelos
+end note
+
+@enduml
